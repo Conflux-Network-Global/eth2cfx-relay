@@ -11,6 +11,6 @@
     "test": "node test.js"
   },
   "devDependencies": {
-    "conflux-web": "^1.36.7-alpha.0"
+    "js-conflux-sdk": "^0.9.2"
   }
 }
