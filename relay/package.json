@@ -8,9 +8,10 @@
   },
   "scripts": {
     "start": "node index.js",
-    "test": "node test.js"
+    "test": "jest"
   },
   "devDependencies": {
+    "jest": "^24.9.0",
     "js-conflux-sdk": "^0.9.2"
   }
 }
