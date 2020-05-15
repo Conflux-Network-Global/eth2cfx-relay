@@ -6,6 +6,7 @@ const connect = require("connect");
 const jsonParser = require("body-parser").json;
 const app = connect();
 
+//currently supported eth calls with equivlanet cfx calls
 const eth2cfx = {
   eth_gasPrice: "cfx_gasPrice",
   eth_blockNumber: "cfx_epochNumber",
@@ -26,7 +27,11 @@ const eth2cfx = {
 //note: some response/inputs structures are different...not sure how this will affect things yet
 // getStorageAt has a different variable type for position
 // estimateGas, blockByHash, blockByNumber have different return parameters
+
+//get the corresponding cfx method based on the eth method
 const methodFilter = (method) => eth2cfx[method];
+
+//fixing the difference in epoch/block parameter
 const epochFilter = (params) => {
   if (params.length > 0) {
     const lastEntry = params[params.length - 1];
@@ -37,10 +42,12 @@ const epochFilter = (params) => {
   return params;
 };
 
+//setting up the endpoint for CFX
 const client = jayson.client.http(
   "http://mainnet-jsonrpc.conflux-chain.org:12537"
 );
 
+//creating a method to handle methods that aren't supported
 const methods = {
   //unknown method called (no corresponding method)
   no_method: function (args, callback) {
@@ -52,9 +59,12 @@ const methods = {
 //using a router, all calls can be routed to the method rather than needing unique methods for each call
 const router = {
   router: function (method, params) {
+    //pre-process to convert
     method = methodFilter(method);
     params = epochFilter(params);
 
+    //return a method, one for no method found
+    //the other for a method that queries the CFX endpoint based on the original data
     return !method
       ? this._methods["no_method"]
       : new jayson.Method((args, callback) => {
@@ -66,12 +76,11 @@ const router = {
   },
 };
 
-// create a server
+// create a middleware server for JSON RPC
 const server = jayson.server(methods, router);
 
+//create server with CORS handling
 app.use(cors());
 app.use(jsonParser());
 app.use(server.middleware());
-
-// server.http().listen(3000);
 app.listen(3000);
