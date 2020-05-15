@@ -29,6 +29,8 @@ Current unknowns/risks:
 - Can Conflux support all the necessary + equivalent ETH calls that a Chainlink node will need? (_biggest question_)
 - How to get a Chainlink node to check for events? (CRON job?)
 - How to view emitted events on Conflux? (this might not be difficult, but just unknown)
+- `cfx_sendTransaction` doesn't exist yet... `cfx_sendRawTransaction` could work for converting
+   - Maybe find the JSON-RPC client in the Conflux Github Repos?
 
 Resources
 - [CFX JSON-RPC](https://developer.conflux-chain.org/docs/conflux-doc/docs/json_rpc/) - Conflux Documentation

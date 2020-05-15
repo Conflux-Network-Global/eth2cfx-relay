@@ -6,6 +6,11 @@ const connect = require("connect");
 const jsonParser = require("body-parser").json;
 const app = connect();
 
+//setting up the endpoint for CFX
+const client = jayson.client.http(
+  "http://testnet-jsonrpc.conflux-chain.org:12537"
+);
+
 //currently supported eth calls with equivlanet cfx calls
 const eth2cfx = {
   eth_gasPrice: "cfx_gasPrice",
@@ -42,11 +47,6 @@ const epochFilter = (params) => {
   return params;
 };
 
-//setting up the endpoint for CFX
-const client = jayson.client.http(
-  "http://mainnet-jsonrpc.conflux-chain.org:12537"
-);
-
 //creating a method to handle methods that aren't supported
 const methods = {
   //unknown method called (no corresponding method)
@@ -58,7 +58,7 @@ const methods = {
 
 //using a router, all calls can be routed to the method rather than needing unique methods for each call
 const router = {
-  router: function (method, params) {
+  router: (method, params) => {
     //pre-process to convert
     method = methodFilter(method);
     params = epochFilter(params);
@@ -66,7 +66,7 @@ const router = {
     //return a method, one for no method found
     //the other for a method that queries the CFX endpoint based on the original data
     return !method
-      ? this._methods["no_method"]
+      ? methods["no_method"]
       : new jayson.Method((args, callback) => {
           client.request(method, params, (err, response) => {
             console.log(method, params, err, response);
