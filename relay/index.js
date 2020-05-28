@@ -8,7 +8,7 @@ const app = connect();
 
 //setting up the endpoint for CFX
 const client = jayson.client.http(
-  "http://testnet-jsonrpc.conflux-chain.org:12537"
+  "http://mainnet-jsonrpc.conflux-chain.org:12537"
 );
 
 //currently supported eth calls with equivlanet cfx calls
@@ -34,18 +34,20 @@ const eth2cfx = {
 // estimateGas, blockByHash, blockByNumber have different return parameters
 
 //get the corresponding cfx method based on the eth method
-const methodFilter = (method) => eth2cfx[method];
-
-//fixing the difference in epoch/block parameter
-const epochFilter = (params) => {
-  if (params.length > 0) {
-    const lastEntry = params[params.length - 1];
-    if (lastEntry === "latest" || lastEntry === "pending") {
-      params[params.length - 1] = "latest_state";
-    }
-  }
-  return params;
+const methodFilter = (method) => {
+  return method.includes("cfx_") ? method : eth2cfx[method];
 };
+
+// //fixing the difference in epoch/block parameter
+// const epochFilter = (params) => {
+//   if (params && params.length > 0) {
+//     const lastEntry = params[params.length - 1];
+//     if (lastEntry === "latest" || lastEntry === "pending") {
+//       params[params.length - 1] = "latest_state";
+//     }
+//   }
+//   return params;
+// };
 
 //creating a method to handle methods that aren't supported
 const methods = {
@@ -60,8 +62,9 @@ const methods = {
 const router = {
   router: (method, params) => {
     //pre-process to convert
-    method = methodFilter(method);
-    params = epochFilter(params);
+    console.log(method, params);
+    // method = methodFilter(method);
+    // params = epochFilter(params);
 
     //return a method, one for no method found
     //the other for a method that queries the CFX endpoint based on the original data
