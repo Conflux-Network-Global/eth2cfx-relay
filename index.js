@@ -38,16 +38,16 @@ const methodFilter = (method) => {
   return method.includes("cfx_") ? method : eth2cfx[method];
 };
 
-// //fixing the difference in epoch/block parameter
-// const epochFilter = (params) => {
-//   if (params && params.length > 0) {
-//     const lastEntry = params[params.length - 1];
-//     if (lastEntry === "latest" || lastEntry === "pending") {
-//       params[params.length - 1] = "latest_state";
-//     }
-//   }
-//   return params;
-// };
+//fixing the difference in epoch/block parameter
+const epochFilter = (params) => {
+  if (params && params.length > 0) {
+    const lastEntry = params[params.length - 1];
+    if (lastEntry === "latest" || lastEntry === "pending") {
+      params[params.length - 1] = "latest_state";
+    }
+  }
+  return params;
+};
 
 //creating a method to handle methods that aren't supported
 const methods = {
@@ -63,8 +63,8 @@ const router = {
   router: (method, params) => {
     //pre-process to convert
     console.log(method, params);
-    // method = methodFilter(method);
-    // params = epochFilter(params);
+    method = methodFilter(method);
+    params = epochFilter(params);
 
     //return a method, one for no method found
     //the other for a method that queries the CFX endpoint based on the original data

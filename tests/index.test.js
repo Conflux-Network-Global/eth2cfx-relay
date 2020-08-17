@@ -6,18 +6,18 @@ const Web3 = require("web3");
 
 //direct connection to conflux network
 const cfx = new Conflux({
-  url: "http://testnet-jsonrpc.conflux-chain.org:12537",
+  url: "http://mainnet-jsonrpc.conflux-chain.org:12537",
   // url: "http://localhost:3000",
   defaultGasPrice: 100, // The default gas price of your following transactions
   defaultGas: 1000000, // The default gas of your following transactions
-  logger: console,
+  // logger: console,
 });
 
 //instance to connect through relay (ETH calls)
 const relay = new Web3("http://localhost:3000");
 
 const user_address = "0x11135d2fcd194785bceb223ad18a45fd66d27a7e";
-const fc_address = "0x88a8f9b1835ae66b6f1da3c930b7d11220bebf78";
+const fc_address = "0x87010faf5964d67ed070bc4b8dcafa1e1adc0997";
 const cfx_contract = cfx.Contract({ abi, address: fc_address });
 const relay_contract = new relay.eth.Contract(abi, fc_address);
 
@@ -48,6 +48,7 @@ test("getBalance functions correctly for relay", async () => {
 test("calling FC contract functions correctly for relay", async () => {
   const relay_balance = await relay_contract.methods.totalSupply().call();
   const cfx_balance = await cfx_contract.totalSupply();
+  console.log(relay_balance.toString(), cfx_balance.toString());
   expect(relay_balance.toString()).toBe(cfx_balance.toString());
 });
 
