@@ -4,6 +4,7 @@ const jayson = require("jayson");
 const cors = require("cors");
 const connect = require("connect");
 const jsonParser = require("body-parser").json;
+const keccak256 = require("keccak256");
 const app = connect();
 
 //setting up the endpoint for CFX
@@ -26,7 +27,7 @@ const eth2cfx = {
   eth_getBlockByNumber: "cfx_getBlockByEpochNumber",
   eth_getTransactionByHash: "cfx_getTransactionByHash",
   eth_getTransactionReceipt: "cfx_getTransactionReceipt",
-  eth_getLogs: "cfx_getLogs",
+  eth_getLogs: "cfx_getLogs" //caution about using cfx_getLogs (default fromEpoch is latest_checkpoint (earliest epoch in memory))
 };
 
 //note: some response/inputs structures are different...not sure how this will affect things yet
@@ -34,56 +35,104 @@ const eth2cfx = {
 // estimateGas, blockByHash, blockByNumber have different return parameters
 
 //get the corresponding cfx method based on the eth method
-const methodFilter = (method) => {
+const methodFilter = method => {
   return method.includes("cfx_") ? method : eth2cfx[method];
 };
 
 //fixing the difference in epoch/block parameter
-const epochFilter = (params) => {
+const epochFilter = params => {
+  let newParams;
   if (params && params.length > 0) {
-    const lastEntry = params[params.length - 1];
-    if (lastEntry === "latest" || lastEntry === "pending") {
-      params[params.length - 1] = "latest_state";
-    }
+    newParams = params.map(param =>
+      param == "latest" || param == "pending" ? "latest_state" : param
+    );
   }
-  return params;
+  return newParams;
 };
 
-//creating a method to handle methods that aren't supported
-const methods = {
-  //unknown method called (no corresponding method)
-  no_method: function (args, callback) {
-    var error = this.error(-32601); // returns an error with the default properties set
-    callback(error);
-  },
+//fixing potential that nonce is not 8-bytes (length 16)
+//so far only seen on 1st block
+const nonceFilter = response => {
+  console.log(response);
+  let nonce = response.result.nonce;
+  if (nonce && nonce.length < 18) {
+    //if nonce exists and too short (0x + 16 = 18)
+    nonce = "0x" + "0".repeat(16 - nonce.length + 2) + nonce.slice(2);
+    response.result.nonce = nonce;
+  }
+  return response;
+};
+
+//matching block data from eth_getBlockByNumber and cfx_getBlockByEpochNumber
+const blockDataFilter = response => {
+  response.result.sha3Uncles =
+    "0x" +
+    keccak256(Buffer.from(response.result.refereeHashes)).toString("hex");
+  response.result.stateRoot = response.result.deferredStateRoot;
+  response.result.receiptsRoot = response.result.deferredReceiptsRoot;
+  response.result.gasUsed = "0x0"; //no gasUsed parameter from CFX response (replacing with 0)
+  response.result.extraData = "0x" + "0".repeat(64); //no equivalent parameter
+  response.result.uncles = response.result.refereeHashes;
+  return response;
+};
+
+//creating a custom methods to handle methods that aren't directly supported
+const customMethods = (unmatchedMethod, params) => {
+  let output;
+  switch (unmatchedMethod) {
+    case "net_version": //ETH method for calling chainId
+      output = (args, callback) => {
+        let id;
+        const host = client.options.hostname;
+        id = host.includes("mainnet")
+          ? 1
+          : host.includes("testnet")
+          ? 2
+          : undefined;
+        callback(null, id.toString());
+      };
+      break;
+    default:
+      output = (args, callback) => {
+        var error = this.error(-32601); // returns an error with the default properties set
+        callback(error);
+      };
+  }
+  return output;
 };
 
 //using a router, all calls can be routed to the method rather than needing unique methods for each call
 const router = {
   router: (method, params) => {
     //pre-process to convert
-    console.log(method, params);
-    method = methodFilter(method);
+    console.log("INCOMING:", method, params);
+    const matchedMethod = methodFilter(method);
     params = epochFilter(params);
 
     //return a method, one for no method found
     //the other for a method that queries the CFX endpoint based on the original data
-    return !method
-      ? methods["no_method"]
+    return !matchedMethod
+      ? customMethods(method, params)
       : new jayson.Method((args, callback) => {
-          client.request(method, params, (err, response) => {
-            console.log(method, params, err, response);
+          console.log("TO CFX:", matchedMethod, params);
+          client.request(matchedMethod, params, (err, response) => {
+            response = err ? response : nonceFilter(response); //apply filter for making sure nonce is correct format
+            response =
+              !err && method.includes("getBlockBy")
+                ? blockDataFilter(response)
+                : response; //implement filter if no error and the RPC call was for block data
+            console.log("RETURN:", matchedMethod, params, err, response);
             err ? callback(err) : callback(err, response.result);
           });
         });
-  },
+  }
 };
 
 // create a middleware server for JSON RPC
-const server = jayson.server(methods, router);
+const server = jayson.server(customMethods, router);
 
 //create server with CORS handling
 app.use(cors());
 app.use(jsonParser());
 app.use(server.middleware());
-app.listen(3000);
+app.listen(3000, () => console.log(`ETH => CFX Relay is active on port 3000`));
