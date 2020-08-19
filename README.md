@@ -14,7 +14,8 @@ Project specs and notes:
 - Using a JSON-RPC server as a relay
   - https://www.npmjs.com/package/jayson#using-the-server-as-a-relay
   - https://www.npmjs.com/package/jayson#method-routing
-  - Relay converts calls to ETH calls to CFX calls
+  - Relay converts calls to ETH calls to CFX calls (pre-processing)
+  - Relay converts CFX responses to ETH responses (post-processing)
 
 Commands
 
@@ -23,7 +24,7 @@ Commands
 
 ## Notes
 
-- Calls that involve getting block information (`getBlockByHash` or `getBlockBy(Epoch)Number`) have CFX parameters mapped to ETH parameters as follows: (any hard coded values do not have comparable equivalents)
+- Calls that involve getting block information (`getBlockByHash`, `getBlockBy(Epoch)Number`) have CFX parameters mapped to ETH parameters as follows: (any hard coded values do not have comparable equivalents)
   | ETH parameter | CFX parameter |
   | -- | -- |
   | sha3Uncles | keccak256(Buffer.from(refereeHashes)) |
@@ -32,6 +33,16 @@ Commands
   | gasUsed | `0x0` |
   | extraData | `0x0` (32 bytes)|
   | uncles | refereeHashes |
+  | number | epochNumber |
+- Calls involving transaction information (`getBlockByHash`, `getBlockBy(Epoch)Number`, `getTransactionByHash`) have CFX parameters mapped to ETH parameters as follows:
+  | ETH parameter | CFX parameter |
+  | -- | -- |
+  | input | data |
+- Calls involving receipt data (`getTransactionReceipt`) have CFX parameters mapped to ETH parameters as follows:
+  | ETH parameter | CFX parameter |
+  | -- | -- |
+  | transactionIndex | index |
+  | cumulativeGasUsed| gasUsed|
 
 ## Improvements
 

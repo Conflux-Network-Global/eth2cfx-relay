@@ -53,7 +53,6 @@ const epochFilter = params => {
 //fixing potential that nonce is not 8-bytes (length 16)
 //so far only seen on 1st block
 const nonceFilter = response => {
-  console.log(response);
   let nonce = response.result.nonce;
   if (nonce && nonce.length < 18) {
     //if nonce exists and too short (0x + 16 = 18)
@@ -73,7 +72,27 @@ const blockDataFilter = response => {
   response.result.gasUsed = "0x0"; //no gasUsed parameter from CFX response (replacing with 0)
   response.result.extraData = "0x" + "0".repeat(64); //no equivalent parameter
   response.result.uncles = response.result.refereeHashes;
+  response.result.number = response.result.epochNumber;
+  response.result.transactions = response.result.transactions.map(transaction =>
+    transactionDataFilter(transaction)
+  );
   return response;
+};
+
+//matching transaction data from CFX returned data to expected ETH data format
+const transactionDataFilter = transactionData => {
+  if (typeof transactionData === "object" && transactionData !== null) {
+    //ignore if transactionData is null and not an object (occurs when getBlockBy* is called with false - only transaction hashes are presented)
+    transactionData.input = transactionData.data;
+  }
+  return transactionData;
+};
+
+//matching receipt data from CFX to expected ETH data
+const transactionReceiptFilter = receipt => {
+  receipt.result.transactionIndex = receipt.result.index;
+  receipt.result.cumulativeGasUsed = receipt.result.gasUsed;
+  return receipt;
 };
 
 //creating a custom methods to handle methods that aren't directly supported
@@ -116,11 +135,20 @@ const router = {
       : new jayson.Method((args, callback) => {
           console.log("TO CFX:", matchedMethod, params);
           client.request(matchedMethod, params, (err, response) => {
+            //post-processing
             response = err ? response : nonceFilter(response); //apply filter for making sure nonce is correct format
-            response =
+            response = //implement filter if no error and the RPC call was for block data (getBlockBy*)
               !err && method.includes("getBlockBy")
                 ? blockDataFilter(response)
-                : response; //implement filter if no error and the RPC call was for block data
+                : response;
+            response.result = //implement filter if no error and the RPC call was for transaction data (getTransactionByHash)
+              !err && method.includes("getTransactionByHash")
+                ? transactionDataFilter(response.result)
+                : response.result;
+            response = //implement filter if no error and the RPC call was for block data (getTransactionReceipt)
+              !err && method.includes("getTransactionReceipt")
+                ? transactionReceiptFilter(response)
+                : response;
             console.log("RETURN:", matchedMethod, params, err, response);
             err ? callback(err) : callback(err, response.result);
           });
