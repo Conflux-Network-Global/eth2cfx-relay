@@ -23,6 +23,7 @@ Commands
 - `yarn test`: start tests (make sure to also start relay)
 
 ## [Pre-Processing Functions](./utils/preprocess.js)
+
 - Methods are converted from `eth_*` to `cfx_*` calls following the recommendations on the [Conflux documentation](https://developer.conflux-chain.org/docs/conflux-doc/docs/json_rpc#migrating-from-ethereum-json-rpc).
 - The [ETH block parameter](https://eth.wiki/json-rpc/API#the-default-block-parameter) is converted to the [CFX epoch parameter](https://developer.conflux-chain.org/docs/conflux-doc/docs/json_rpc/#the-epoch-number-parameter).
 - Certain methods that do not have complimentary `cfx_*` calls are custom built in the [index.js](./index.js) under the `customMethods()` function.
@@ -43,11 +44,13 @@ Commands
   | ETH parameter | CFX parameter |
   | -- | -- |
   | input | data |
+  | blockNumber | _see code for details_ |
 - Calls involving receipt data (`getTransactionReceipt`) have CFX parameters mapped to ETH parameters as follows:
   | ETH parameter | CFX parameter |
   | -- | -- |
   | transactionIndex | index |
   | cumulativeGasUsed| gasUsed|
+  | blockNumber | epochNumber |
 
 ## Improvements
 

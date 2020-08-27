@@ -15,6 +15,7 @@ const client = jayson.client.http(
 
 //creating a custom methods to handle methods that aren't directly supported
 const customMethods = (unmatchedMethod, params) => {
+  console.log("CUSTOM METHOD:", unmatchedMethod, params);
   let output;
   switch (unmatchedMethod) {
     case "net_version": //ETH method for calling chainId
@@ -27,6 +28,25 @@ const customMethods = (unmatchedMethod, params) => {
           ? 2
           : undefined;
         callback(null, id.toString());
+      };
+      break;
+    case "eth_getTransactionByHash": //customized method for getTransactionByHash
+      output = (args, callback) => {
+        client.request("cfx_getTransactionByHash", args, (err, txResponse) => {
+          if (!txResponse.error) {
+            client.request(
+              "cfx_getBlockByHash",
+              [txResponse.result.blockHash, false],
+              (err2, blockResponse) => {
+                txResponse.result.epochNumber = blockResponse.result.epochNumber;
+                txResponse = postprocess("cfx_getTransactionByHash", txResponse)
+                callback(txResponse.error, txResponse.result);
+              }
+            );
+          } else {
+            callback(txResponse.error);
+          }
+        });
       };
       break;
     default:
@@ -54,9 +74,11 @@ const router = {
           console.log("TO CFX:", matchedMethod, params);
           client.request(matchedMethod, params, (err, response) => {
             //post-processing
-            response = err ? response : postprocess(method, response);
+            response = response.error
+              ? response
+              : postprocess(method, response);
             console.log("RETURN:", matchedMethod, params, err, response);
-            err ? callback(err) : callback(err, response.result);
+            callback(response.error, response.result);
           });
         });
   }

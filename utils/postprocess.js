@@ -7,14 +7,22 @@ module.exports = (method, response) => {
     response = nonceFilter(response); //apply filter for making sure nonce is correct format
     if (method.includes("getBlockBy")) {
       //implement filter if the RPC call was for block data (getBlockBy*)
-      filtered = blockDataFilter(response)
+      filtered = blockDataFilter(response);
     } else if (method.includes("getTransactionByHash")) {
       //implement filter if the RPC call was for transaction data (getTransactionByHash)
       filtered = response;
-      filtered.result = transactionDataFilter(response.result);
+      filtered.result = transactionDataFilter(
+        response.result,
+        response.result.epochNumber
+      );
     } else if (method.includes("getTransactionReceipt")) {
       //implement filter if the RPC call was for block data (getTransactionReceipt)
       filtered = transactionReceiptFilter(response);
+    } else if (method.includes("getLogs")) {
+      filtered = response;
+      filtered.result = filtered.result.map(log =>
+        logFilter(log, log.epochNumber, log.blockHash, log.transactionHash)
+      );
     } else {
       filtered = response;
     }
@@ -23,7 +31,7 @@ module.exports = (method, response) => {
     filtered = response;
   }
   return filtered;
-}
+};
 
 //fixing potential that nonce is not 8-bytes (length 16)
 //so far only seen on 1st block
@@ -49,16 +57,19 @@ const blockDataFilter = response => {
   response.result.uncles = response.result.refereeHashes;
   response.result.number = response.result.epochNumber;
   response.result.transactions = response.result.transactions.map(transaction =>
-    transactionDataFilter(transaction)
+    transactionDataFilter(transaction, response.result.epochNumber)
   );
   return response;
 };
 
 //matching transaction data from CFX returned data to expected ETH data format
-const transactionDataFilter = transactionData => {
+const transactionDataFilter = (transactionData, epochNumber) => {
   if (typeof transactionData === "object" && transactionData !== null) {
     //ignore if transactionData is null and not an object (occurs when getBlockBy* is called with false - only transaction hashes are presented)
     transactionData.input = transactionData.data;
+  }
+  if (epochNumber !== null) {
+    transactionData.blockNumber = epochNumber;
   }
   return transactionData;
 };
@@ -67,5 +78,22 @@ const transactionDataFilter = transactionData => {
 const transactionReceiptFilter = receipt => {
   receipt.result.transactionIndex = receipt.result.index;
   receipt.result.cumulativeGasUsed = receipt.result.gasUsed;
+  receipt.result.blockNumber = receipt.result.epochNumber;
+  receipt.result.logs = receipt.result.logs.map(log =>
+    logFilter(
+      log,
+      receipt.result.epochNumber,
+      receipt.result.blockHash,
+      receipt.result.transactionHash
+    )
+  );
   return receipt;
+};
+
+//matching log data with expected ETH log data
+const logFilter = (log, epochNumber, blockHash, txHash) => {
+  log.blockNumber = epochNumber;
+  log.blockHash = blockHash;
+  log.transactionHash = txHash;
+  return log;
 };
