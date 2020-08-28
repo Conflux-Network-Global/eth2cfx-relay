@@ -74,11 +74,11 @@ const router = {
           console.log("TO CFX:", matchedMethod, params);
           client.request(matchedMethod, params, (err, response) => {
             //post-processing
-            response = response.error
+            response = err || response.error
               ? response
-              : postprocess(method, response);
+              : postprocess(method, params, response);
             console.log("RETURN:", matchedMethod, params, err, response);
-            callback(response.error, response.result);
+            err ? callback(err) : callback(response.error, response.result);
           });
         });
   }

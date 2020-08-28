@@ -38,8 +38,8 @@ Commands
   | receiptsRoot | deferredReceiptsRoot |
   | gasUsed | `0x0` |
   | extraData | `0x0` (32 bytes)|
-  | uncles | refereeHashes |
-  | number | epochNumber |
+  | uncles | `[]` |
+  | number | height |
 - Calls involving transaction information (`getBlockByHash`, `getBlockBy(Epoch)Number`, `getTransactionByHash`) have CFX parameters mapped to ETH parameters as follows:
   | ETH parameter | CFX parameter |
   | -- | -- |

@@ -1,7 +1,7 @@
 const keccak256 = require("keccak256");
 
 //post-processing function
-module.exports = (method, response) => {
+module.exports = (method, params, response) => {
   let filtered;
   try {
     response = nonceFilter(response); //apply filter for making sure nonce is correct format
@@ -19,10 +19,17 @@ module.exports = (method, response) => {
       //implement filter if the RPC call was for block data (getTransactionReceipt)
       filtered = transactionReceiptFilter(response);
     } else if (method.includes("getLogs")) {
+      //implement filter if the RPC call was for log data (getLogs)
       filtered = response;
-      filtered.result = filtered.result.map(log =>
-        logFilter(log, log.epochNumber, log.blockHash, log.transactionHash)
-      );
+      filtered.result = filtered.result.filter(
+        log =>
+          Number(log.epochNumber) >= Number(params[0].fromBlock) &&
+          Number(log.epochNumber) <= Number(params[0].toBlock)
+      ); //behavior of cfx_getLogs returns events before and after the specified ranges
+
+      filtered.result = filtered.result.map((
+        log //mapping parameters
+      ) => logFilter(log, log.epochNumber, log.blockHash, log.transactionHash));
     } else {
       filtered = response;
     }
@@ -54,7 +61,8 @@ const blockDataFilter = response => {
   response.result.receiptsRoot = response.result.deferredReceiptsRoot;
   response.result.gasUsed = "0x0"; //no gasUsed parameter from CFX response (replacing with 0)
   response.result.extraData = "0x" + "0".repeat(64); //no equivalent parameter
-  response.result.uncles = response.result.refereeHashes;
+  // response.result.uncles = response.result.refereeHashes;
+  response.result.uncles = [];
   response.result.number = response.result.epochNumber;
   response.result.transactions = response.result.transactions.map(transaction =>
     transactionDataFilter(transaction, response.result.epochNumber)
