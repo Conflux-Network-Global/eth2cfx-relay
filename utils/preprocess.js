@@ -1,6 +1,6 @@
 //preprocessing function
 module.exports = (method, params) => {
-  return [methodFilter(method), epochFilter(params)];
+  return [methodFilter(method), epochFilter(method, params)];
 };
 
 //currently supported eth calls with equivlanet cfx calls
@@ -27,12 +27,38 @@ const methodFilter = method => {
 };
 
 //fixing the difference in epoch/block parameter
-const epochFilter = params => {
+const epochFilter = (method, params) => {
   let newParams;
-  if (params && params.length > 0) {
+  if (params && params.length > 0 && method !== "eth_getLogs") {
     newParams = params.map(param =>
       param == "latest" || param == "pending" ? "latest_state" : param
     );
+  } else if (method === "eth_getLogs") {
+    //converting parameters in eth_getLogs
+    const logFilter = params[0];
+    if (logFilter.fromBlock) { //converting fromBlock to fromEpoch
+      logFilter.fromEpoch = epochLogFilter(logFilter.fromBlock)
+      delete logFilter.fromBlock;
+    } else {
+      logFilter.fromEpoch = "latest_state"
+    }
+
+    if (logFilter.toBlock) {//converting toBlock to toEpoch
+      logFilter.toEpoch = epochLogFilter(logFilter.toBlock)
+      delete logFilter.toBlock;
+    }
+    newParams = [logFilter];
   }
   return newParams;
 };
+
+//converting to/from according to expected ETH JSON-RPC behavior
+const epochLogFilter = (block) => {
+  let epoch;
+  if (Number(block) || block === "earliest") {
+    epoch = block;
+  } else {
+    epoch = "latest_state";
+  }
+  return epoch
+}

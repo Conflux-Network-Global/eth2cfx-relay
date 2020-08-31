@@ -21,12 +21,6 @@ module.exports = (method, params, response) => {
     } else if (method.includes("getLogs")) {
       //implement filter if the RPC call was for log data (getLogs)
       filtered = response;
-      filtered.result = filtered.result.filter(
-        log =>
-          Number(log.epochNumber) >= Number(params[0].fromBlock) &&
-          Number(log.epochNumber) <= Number(params[0].toBlock)
-      ); //behavior of cfx_getLogs returns events before and after the specified ranges
-
       filtered.result = filtered.result.map((
         log //mapping parameters
       ) => logFilter(log, log.epochNumber, log.blockHash, log.transactionHash));
