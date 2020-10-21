@@ -6,7 +6,7 @@ const Web3 = require("web3");
 
 //direct connection to conflux network
 const cfx = new Conflux({
-  url: "http://mainnet-jsonrpc.conflux-chain.org:12537",
+  url: "http://main.confluxrpc.org",
   // url: "http://localhost:3000",
   defaultGasPrice: 100, // The default gas price of your following transactions
   defaultGas: 1000000, // The default gas of your following transactions

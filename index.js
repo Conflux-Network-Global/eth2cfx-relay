@@ -10,7 +10,7 @@ const app = connect();
 
 //setting up the endpoint for CFX
 const client = jayson.client.http(
-  "http://mainnet-jsonrpc.conflux-chain.org:12537"
+  "http://main.confluxrpc.org"
 );
 
 //creating a custom methods to handle methods that aren't directly supported
