@@ -22,6 +22,12 @@ Commands
 - `yarn start`: start up the relay
 - `yarn test`: start tests (make sure to also start relay)
 
+`.env` File Configuration:
+```
+ENDPOINT=http://test.confluxrpc.org
+PORT=3000
+```
+
 ## [Pre-Processing Functions](./utils/preprocess.js)
 
 - Methods are converted from `eth_*` to `cfx_*` calls following the recommendations on the [Conflux documentation](https://developer.conflux-chain.org/docs/conflux-doc/docs/json_rpc#migrating-from-ethereum-json-rpc).

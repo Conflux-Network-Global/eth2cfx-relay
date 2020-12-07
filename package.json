@@ -7,8 +7,10 @@
     "body-parser": "^1.19.0",
     "connect": "^3.7.0",
     "cors": "^2.8.5",
+    "dotenv": "^8.2.0",
     "jayson": "^3.3.0",
-    "keccak256": "^1.0.0"
+    "keccak256": "^1.0.0",
+    "ws": "^7.4.1"
   },
   "scripts": {
     "start": "node index.js",
