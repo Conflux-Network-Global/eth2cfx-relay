@@ -136,20 +136,28 @@ if (type == "ht") {
       const [matchedMethod, params] = preprocess(data.method, data.params);
       data = { ...data, method: matchedMethod, params };
       console.log("TO CFX:", data);
+      requestIDs[data.id] = data; //saving data for post processing
       wsNetwork.send(JSON.stringify(data));
     });
 
     //return to requester
     wsNetwork.on("message", function incoming(data) {
-      console.log("RETURN:", data);
 
       //tracking subscriptions
-      const jsonData = JSON.parse(data);
-      if (jsonData.method == "cfx_subscription") {
-        subscriptionIDs[jsonData.params.subscription] = true;
+      data = JSON.parse(data);
+      if (data.method == "cfx_subscription") {
+        subscriptionIDs[data.params.subscription] = true;
       }
 
-      ws.send(data);
+      //only post process if no error
+      if (!data.error) {
+        const inputs = requestIDs[data.id]
+        data = postprocess(inputs.method, inputs.params, data)
+      }
+
+      console.log("RETURN:", data);
+      delete requestIDs[data.id];
+      ws.send(JSON.stringify(data));
     });
 
     //close all subscriptions when client closes connection
