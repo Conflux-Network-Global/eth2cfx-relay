@@ -6,7 +6,8 @@ Note: Cannot relay signed transactions from ETH to CFX, only unsigned informatio
 
 ## Technical Details
 
-A relay to convert [ETH JSON-RPC](https://github.com/ethereum/wiki/wiki/JSON-RPC) calls to [CFX JSON-RPC](https://developer.conflux-chain.org/docs/conflux-doc/docs/json_rpc/) calls.
+A relay to convert [ETH JSON-RPC](https://github.com/ethereum/wiki/wiki/JSON-RPC) calls to [CFX JSON-RPC](https://developer.conflux-chain.org/docs/conflux-doc/docs/json_rpc/) calls.  
+Supports both HTTP and Websocket endpoints.
 
 Project specs and notes:
 

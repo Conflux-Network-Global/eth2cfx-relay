@@ -142,7 +142,6 @@ if (type == "ht") {
 
     //return to requester
     wsNetwork.on("message", function incoming(data) {
-
       //tracking subscriptions
       data = JSON.parse(data);
       if (data.method == "cfx_subscription") {
@@ -151,8 +150,8 @@ if (type == "ht") {
 
       //only post process if no error
       if (!data.error) {
-        const inputs = requestIDs[data.id]
-        data = postprocess(inputs.method, inputs.params, data)
+        const inputs = requestIDs[data.id];
+        data = postprocess(inputs.method, inputs.params, data);
       }
 
       console.log("RETURN:", data);
