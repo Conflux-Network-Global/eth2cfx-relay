@@ -133,25 +133,47 @@ if (type == "ht") {
 
       // pass on to Conflux
       data = JSON.parse(data);
+
+      // not supporting newHeads pubSub
+      if (data.method === "eth_subscribe" && data.params[0] === "newHeads") {
+        data.method = "";
+      }
+
       const [matchedMethod, params] = preprocess(data.method, data.params);
       data = { ...data, method: matchedMethod, params };
       console.log("TO CFX:", data);
-      requestIDs[data.id] = data; //saving data for post processing
+
+      //saving data for post processing
+      if (matchedMethod === "cfx_subscribe") {
+        subscriptionIDs[data.id] = data;
+      } else {
+        requestIDs[data.id] = data;
+      }
+
       wsNetwork.send(JSON.stringify(data));
     });
 
     //return to requester
     wsNetwork.on("message", function incoming(data) {
-      //tracking subscriptions
+      //handling subscription returns
       data = JSON.parse(data);
       if (data.method == "cfx_subscription") {
-        subscriptionIDs[data.params.subscription] = true;
+        // subscriptionIDs[data.params.subscription] = true;
+        const dataObj = postprocess(
+          data.method,
+          subscriptionIDs[data.params.subscription].params,
+          data.params
+        );
+        data.params = dataObj;
       }
 
-      //only post process if no error
-      if (!data.error) {
+      //only post process if no error (and is not a subscription response)
+      if (!data.error && !!requestIDs[data.id]) {
         const inputs = requestIDs[data.id];
         data = postprocess(inputs.method, inputs.params, data);
+      } else if (!data.error && !!subscriptionIDs[data.id]) {
+        subscriptionIDs[data.result] = subscriptionIDs[data.id]; //setting subscription data to be looked up via subscription ID rather than request ID
+        delete subscriptionIDs[data.id];
       }
 
       console.log("RETURN:", data);

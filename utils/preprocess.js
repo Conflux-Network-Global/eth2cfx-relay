@@ -18,7 +18,8 @@ const eth2cfx = {
   eth_getBlockByNumber: "cfx_getBlockByEpochNumber",
   // eth_getTransactionByHash: "cfx_getTransactionByHash", //custom handler created for getTransactionByHash (see index.js)
   eth_getTransactionReceipt: "cfx_getTransactionReceipt",
-  eth_getLogs: "cfx_getLogs" //caution about using cfx_getLogs (default fromEpoch is latest_checkpoint (earliest epoch in memory))
+  eth_getLogs: "cfx_getLogs", //caution about using cfx_getLogs (default fromEpoch is latest_checkpoint (earliest epoch in memory))
+  eth_subscribe: "cfx_subscribe"
 };
 
 //get the corresponding cfx method based on the eth method
@@ -29,13 +30,17 @@ const methodFilter = method => {
 //fixing the difference in epoch/block parameter
 const epochFilter = (method, params) => {
   let newParams;
-  if (params && params.length > 0 && method !== "eth_getLogs") {
+  if (params && params.length > 0 && method !== "eth_getLogs" && method !== "eth_subscribe") {
     newParams = params.map(param =>
       param == "latest" || param == "pending" ? "latest_state" : param
     );
-  } else if (method === "eth_getLogs") {
+  } else if (method === "eth_getLogs" || (method === "eth_subscribe" && params[0] === "logs")) {
     //converting parameters in eth_getLogs
-    const logFilter = params[0];
+    let logFilter = params[0];
+    if (method === "eth_subscribe") {
+      logFilter = params[1];
+    }
+
     if (logFilter.fromBlock) { //converting fromBlock to fromEpoch
       logFilter.fromEpoch = epochLogFilter(logFilter.fromBlock)
       delete logFilter.fromBlock;
@@ -47,7 +52,12 @@ const epochFilter = (method, params) => {
       logFilter.toEpoch = epochLogFilter(logFilter.toBlock)
       delete logFilter.toBlock;
     }
-    newParams = [logFilter];
+
+    if (method === "eth_subscribe") {
+      newParams = [params[0], logFilter];
+    } else {
+      newParams = [logFilter];
+    }
   }
   return newParams;
 };

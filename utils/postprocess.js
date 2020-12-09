@@ -24,6 +24,14 @@ module.exports = (method, params, response) => {
       filtered.result = filtered.result.map((
         log //mapping parameters
       ) => logFilter(log, log.epochNumber, log.blockHash, log.transactionHash));
+    } else if (method.includes("subscription") && params[0] === "logs") {
+      filtered = response;
+      filtered.result = logFilter(
+        filtered.result,
+        filtered.result.epochNumber,
+        filtered.result.blockHash,
+        filtered.result.transactionHash
+      );
     } else {
       filtered = response;
     }
