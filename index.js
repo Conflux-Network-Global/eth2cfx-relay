@@ -9,6 +9,8 @@ const jsonParser = require("body-parser").json;
 const preprocess = require("./utils/preprocess");
 const postprocess = require("./utils/postprocess");
 
+let client;
+
 //check endpoint type ('ws' or 'ht')
 const type = process.env.ENDPOINT.substring(0, 2);
 
@@ -93,7 +95,7 @@ if (type == "ht") {
   // create a middleware server for JSON RPC
 
   //setting up the endpoint for CFX
-  const client = jayson.client.http(process.env.ENDPOINT);
+  client = jayson.client.http(process.env.ENDPOINT);
   const server = jayson.server(customMethods, router);
   const app = connect();
 
@@ -155,6 +157,8 @@ if (type == "ht") {
 
     //return to requester
     wsNetwork.on("message", function incoming(data) {
+      console.log("NEW MSG", data);
+
       //handling subscription returns
       data = JSON.parse(data);
       if (data.method == "cfx_subscription") {
@@ -177,7 +181,7 @@ if (type == "ht") {
       }
 
       console.log("RETURN:", data);
-      delete requestIDs[data.id];
+      // delete requestIDs[data.id];
       ws.send(JSON.stringify(data));
     });
 

@@ -53,6 +53,43 @@ const epochFilter = (method, params) => {
       delete logFilter.toBlock;
     }
 
+    //////////////////
+    if (logFilter.fromEpoch == '0x125b609') {
+      // logFilter.fromEpoch = '0xE7FB5F';
+      logFilter.fromEpoch = '0xEA356F';
+    }
+
+    if (logFilter.fromEpoch == '0x1284636') {
+      // logFilter.fromEpoch = '0xE7FB5F';
+      logFilter.fromEpoch = '0xEA4DDB';
+    }
+
+    if (logFilter.fromEpoch == '0x1287505') {
+      // logFilter.fromEpoch = '0xE7FB5F';
+      logFilter.fromEpoch = '0xEA74CC';
+    }
+
+    if (logFilter.fromEpoch == '0x12a9763') {
+      logFilter.fromEpoch = '0xEC4BD9';
+    }
+
+    if (logFilter.fromEpoch == '0x12b489b') {
+      logFilter.fromEpoch = '0xECD930';
+    }
+
+    if (logFilter.fromEpoch == '0x12cf11b') {
+      logFilter.fromEpoch = '0xEE2B92';
+    }
+
+    if (logFilter.fromEpoch == '0x12cf2b5') {
+      logFilter.fromEpoch = '0xEE2B92';
+    }
+
+    if (logFilter.fromEpoch == '0x12d8e68') {
+      logFilter.fromEpoch = '0xEEA71C';
+    }
+    //////////////////
+
     if (method === "eth_subscribe") {
       newParams = [params[0], logFilter];
     } else {
