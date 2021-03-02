@@ -32,6 +32,9 @@ module.exports = (method, params, response) => {
         filtered.result.blockHash,
         filtered.result.transactionHash
       );
+    } else if (method.includes("estimate")) {
+      filtered = response;
+      filtered.result = filtered.result.gasLimit;
     } else {
       filtered = response;
     }

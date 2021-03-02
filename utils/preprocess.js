@@ -88,6 +88,18 @@ const epochFilter = (method, params) => {
     if (logFilter.fromEpoch == '0x12d8e68') {
       logFilter.fromEpoch = '0xEEA71C';
     }
+
+    if (logFilter.fromEpoch == '0x1357365') {
+      logFilter.fromEpoch = '0xF4F3F9';
+    }
+
+    if (logFilter.fromEpoch == '0x135b254') {
+      logFilter.fromEpoch = '0xF5254D';
+    }
+
+    if (logFilter.fromEpoch == '0x135ba63') {
+      logFilter.fromEpoch = '0xF5254D';
+    }
     //////////////////
 
     if (method === "eth_subscribe") {

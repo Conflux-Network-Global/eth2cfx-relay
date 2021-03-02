@@ -9,6 +9,12 @@ const jsonParser = require("body-parser").json;
 const preprocess = require("./utils/preprocess");
 const postprocess = require("./utils/postprocess");
 
+function getRandomInt(min, max) {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min) + min);
+}
+
 let client;
 
 //check endpoint type ('ws' or 'ht')
@@ -127,14 +133,67 @@ if (type == "ht") {
   });
 
   let subscriptionIDs = {};
-  let requestIDs = {};
+  let originalRequest = {};
+  let requestIDMapping = {};
+
+  //return to requester
+  wsNetwork.on("message", function incoming(data) {
+    console.log(`[proxy] incoming message: '${data}'`);
+
+    // parse message
+    try {
+      data = JSON.parse(data);
+    } catch (err) {
+      console.error(`[proxy] failed to parse JSON\n    data: '${data.trim()}'\n    error: ${err}`);
+      return;
+    }
+
+    if (data.method == "cfx_subscription") {
+      // subscriptionIDs[data.params.subscription] = true;
+      const dataObj = postprocess(
+        data.method,
+        subscriptionIDs[data.params.subscription].params,
+        data.params
+      );
+      data.params = dataObj;
+    }
+
+    //only post process if no error (and is not a subscription response)
+    if (!data.error && !!originalRequest[data.id]) {
+      const inputs = originalRequest[data.id];
+      data = postprocess(inputs.method, inputs.params, data);
+    } else if (!data.error && !!subscriptionIDs[data.id]) {
+      subscriptionIDs[data.result] = subscriptionIDs[data.id]; //setting subscription data to be looked up via subscription ID rather than request ID
+      delete subscriptionIDs[data.id];
+    }
+
+    delete originalRequest[data.id];
+
+    // get original request id and connection object
+    const req = requestIDMapping[data.id];
+    console.log(`[proxy] dispatching #${data.id} to client ${req.client_id} as #${req.id}`);
+    data.id = req.id;
+
+    data = JSON.stringify(data);
+    console.log(`[${req.client_id}] result from node: '${data}'`)
+    req.ws.send(data);
+  });
+
   // handle WS client connection to relay information
   wsRelay.on("connection", function connection(ws) {
+    const client_id = getRandomInt(10000, 90000);
+    console.log(`[${client_id}] new connection`)
+
     ws.on("message", function incoming(data) {
-      console.log("INCOMING:", data);
+      console.log(`[${client_id}] new client request: '${data.trim()}'`)
 
       // pass on to Conflux
-      data = JSON.parse(data);
+      try {
+        data = JSON.parse(data);
+      } catch (err) {
+        console.error(`[${client_id}] failed to parse JSON\n    data: '${data.trim()}'\n    error: ${err}`);
+        return;
+      }
 
       // not supporting newHeads pubSub
       if (data.method === "eth_subscribe" && data.params[0] === "newHeads") {
@@ -143,65 +202,41 @@ if (type == "ht") {
 
       const [matchedMethod, params] = preprocess(data.method, data.params);
       data = { ...data, method: matchedMethod, params };
-      console.log("TO CFX:", data);
+
+      // generate random request id so that we can handle multiple clients
+      const newId = getRandomInt(10000, 1000000);
+      console.log(`[${client_id}] assigning ID #${newId} to request #${data.id}`)
+      requestIDMapping[newId] = { id: data.id, ws, client_id };
+      data.id = newId;
 
       //saving data for post processing
       if (matchedMethod === "cfx_subscribe") {
         subscriptionIDs[data.id] = data;
       } else {
-        requestIDs[data.id] = data;
+        originalRequest[data.id] = data;
       }
 
-      wsNetwork.send(JSON.stringify(data));
-    });
-
-    //return to requester
-    wsNetwork.on("message", function incoming(data) {
-      console.log("NEW MSG", data);
-
-      //handling subscription returns
-      data = JSON.parse(data);
-      if (data.method == "cfx_subscription") {
-        // subscriptionIDs[data.params.subscription] = true;
-        const dataObj = postprocess(
-          data.method,
-          subscriptionIDs[data.params.subscription].params,
-          data.params
-        );
-        data.params = dataObj;
-      }
-
-      //only post process if no error (and is not a subscription response)
-      if (!data.error && !!requestIDs[data.id]) {
-        const inputs = requestIDs[data.id];
-        data = postprocess(inputs.method, inputs.params, data);
-      } else if (!data.error && !!subscriptionIDs[data.id]) {
-        subscriptionIDs[data.result] = subscriptionIDs[data.id]; //setting subscription data to be looked up via subscription ID rather than request ID
-        delete subscriptionIDs[data.id];
-      }
-
-      console.log("RETURN:", data);
-      // delete requestIDs[data.id];
-      ws.send(JSON.stringify(data));
+      data = JSON.stringify(data)
+      console.log(`[${client_id}] sending request to Conflux: '${data}'`)
+      wsNetwork.send(data);
     });
 
     //close all subscriptions when client closes connection
     ws.on("close", function close() {
-      Object.keys(subscriptionIDs).forEach(key => {
-        wsNetwork.send(
-          Buffer.from(
-            JSON.stringify({
-              jsonrpc: "2.0",
-              method: "cfx_unsubscribe",
-              params: [key],
-              id: 2
-            })
-          )
-        );
-      });
-      // clearing any remaining saved states
-      subscriptionIDs = {};
-      requestIDs = {};
+      console.log(`[${client_id}] connection closed`)
+
+      // Object.keys(subscriptionIDs).forEach(key => {
+      //   wsNetwork.send(
+      //     Buffer.from(
+      //       JSON.stringify({
+      //         jsonrpc: "2.0",
+      //         method: "cfx_unsubscribe",
+      //         params: [key],
+      //         id: 2
+      //       })
+      //     )
+      //   );
+      // });
     });
   });
 } else {
