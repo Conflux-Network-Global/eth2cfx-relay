@@ -8,6 +8,7 @@ const connect = require("connect");
 const jsonParser = require("body-parser").json;
 const preprocess = require("./utils/preprocess");
 const postprocess = require("./utils/postprocess");
+const colors = require('colors');
 
 function getRandomInt(min, max) {
   min = Math.ceil(min);
@@ -96,6 +97,24 @@ const router = {
   }
 };
 
+function parseRequest(raw) {
+  const data = JSON.parse(raw);
+
+  if (typeof data.id === 'undefined') {
+    throw 'Invalid format: request missing "id" field';
+  }
+
+  if (typeof data.method === 'undefined') {
+    throw 'Invalid format: request missing "method" field';
+  }
+
+  if (typeof data.params === 'undefined') {
+    throw 'Invalid format: request missing "params" field';
+  }
+
+  return data;
+}
+
 //logic for setting up server
 if (type == "ht") {
   // create a middleware server for JSON RPC
@@ -132,112 +151,199 @@ if (type == "ht") {
     "Endpoint closed connection please restart the relay";
   });
 
-  let subscriptionIDs = {};
-  let originalRequest = {};
-  let requestIDMapping = {};
+  let onResponse = {};     // id => callback
+  let onSubMsg = {}; // id => callback
+  let clientSubscriptions = {};  // id => list
 
-  //return to requester
-  wsNetwork.on("message", function incoming(data) {
-    console.log(`[proxy] incoming message: '${data}'`);
+  setInterval(() => {
+    console.log(`[proxy]`.grey, `stats: ${Object.keys(onResponse).length} requests / ${Object.keys(onSubMsg).length} subscriptions / ${Object.keys(clientSubscriptions).length} subscription clients`.grey);
+  }, 1000)
 
-    // parse message
-    try {
-      data = JSON.parse(data);
-    } catch (err) {
-      console.error(`[proxy] failed to parse JSON\n    data: '${data.trim()}'\n    error: ${err}`);
-      return;
+  const defaultHandler = (ctx) => {
+    return (resp) => {
+      if (!resp.error) {
+        // post-process response
+        resp = postprocess(ctx.req.method, ctx.req.params, resp);
+      }
+
+      // handle subscribe
+      if (!resp.error && ctx.req.method === "cfx_subscribe") {
+        const subID = resp.result;
+
+        clientSubscriptions[ctx.clientID] = clientSubscriptions[ctx.clientID] || [];
+        clientSubscriptions[ctx.clientID].push(subID);
+
+        onSubMsg[subID] = (msg) => {
+          const data = JSON.stringify(msg);
+          console.log(`[${ctx.clientID}]`.grey, `subscription notification:`, `'${data}'`.yellow)
+          ctx.ws.send(data);
+        };
+      }
+
+      // handle unsubscribe
+      if (!resp.error && ctx.req.method === "cfx_unsubscribe" && resp.result) {
+        const subID = ctx.req.params[0];
+        clientSubscriptions[ctx.clientID] = clientSubscriptions[ctx.clientID].filter(e => e !== subID);
+        delete onSubMsg[subID];
+        console.log(`[proxy]`.grey, `successfully unsubscribed client ${ctx.clientID} from #${subID}`);
+      }
+
+      console.log(`[proxy]`.grey, `dispatching #${resp.id} to client ${ctx.clientID} as #${ctx.reqID}`);
+      resp.id = ctx.reqID;
+
+      const isError = !!resp.error;
+      const data = JSON.stringify(resp);
+      console.log(`[${ctx.clientID}]`.grey, `result from node:`, isError ? `'${data}'`.red + ' (req: ' + `${JSON.stringify(ctx.req)}`.grey + ')' : `'${data}'`.green)
+      ctx.ws.send(data);
+      delete onResponse[ctx.req.id];
     }
-
-    if (data.method == "cfx_subscription") {
-      // subscriptionIDs[data.params.subscription] = true;
-      const dataObj = postprocess(
-        data.method,
-        subscriptionIDs[data.params.subscription].params,
-        data.params
-      );
-      data.params = dataObj;
-    }
-
-    //only post process if no error (and is not a subscription response)
-    if (!data.error && !!originalRequest[data.id]) {
-      const inputs = originalRequest[data.id];
-      data = postprocess(inputs.method, inputs.params, data);
-    } else if (!data.error && !!subscriptionIDs[data.id]) {
-      subscriptionIDs[data.result] = subscriptionIDs[data.id]; //setting subscription data to be looked up via subscription ID rather than request ID
-      delete subscriptionIDs[data.id];
-    }
-
-    delete originalRequest[data.id];
-
-    // get original request id and connection object
-    const req = requestIDMapping[data.id];
-    console.log(`[proxy] dispatching #${data.id} to client ${req.client_id} as #${req.id}`);
-    data.id = req.id;
-
-    data = JSON.stringify(data);
-    console.log(`[${req.client_id}] result from node: '${data}'`)
-    req.ws.send(data);
-  });
+  }
 
   // handle WS client connection to relay information
   wsRelay.on("connection", function connection(ws) {
-    const client_id = getRandomInt(10000, 90000);
-    console.log(`[${client_id}] new connection`)
+    // generate client ID
+    const clientID = getRandomInt(10000, 90000);
+    console.log(`[${clientID}]`.grey, `new connection`)
 
-    ws.on("message", function incoming(data) {
-      console.log(`[${client_id}] new client request: '${data.trim()}'`)
+    ws.on("message", function incoming(raw) {
+      console.log(`[${clientID}]`.grey, `new client request:`, `'${raw.trim()}'`.grey)
 
-      // pass on to Conflux
+      // parse request
+      let req;
+
       try {
-        data = JSON.parse(data);
+        req = parseRequest(raw);
       } catch (err) {
-        console.error(`[${client_id}] failed to parse JSON\n    data: '${data.trim()}'\n    error: ${err}`);
+        console.error(`[${clientID}]`.grey, `failed to parse request\n    raw: '${raw.trim()}'\n    error: ${err}`.red);
         return;
       }
 
-      // not supporting newHeads pubSub
-      if (data.method === "eth_subscribe" && data.params[0] === "newHeads") {
-        data.method = "";
-      }
+      // // not supporting newHeads pubSub
+      // if (request.method === "eth_subscribe" && request.params[0] === "newHeads") {
+      //   request.method = "";
+      // }
 
-      const [matchedMethod, params] = preprocess(data.method, data.params);
-      data = { ...data, method: matchedMethod, params };
+      // pre-process request
+      const [matchedMethod, params] = preprocess(req.method, req.params);
+      req = { ...req, method: matchedMethod, params };
 
       // generate random request id so that we can handle multiple clients
-      const newId = getRandomInt(10000, 1000000);
-      console.log(`[${client_id}] assigning ID #${newId} to request #${data.id}`)
-      requestIDMapping[newId] = { id: data.id, ws, client_id };
-      data.id = newId;
+      const reqID = req.id;
+      req.id = getRandomInt(10000, 1000000);
+      console.log(`[${clientID}]`.grey, `assigning ID #${req.id} to request #${reqID}`)
 
-      //saving data for post processing
-      if (matchedMethod === "cfx_subscribe") {
-        subscriptionIDs[data.id] = data;
-      } else {
-        originalRequest[data.id] = data;
-      }
+      // register handler
+      onResponse[req.id] = defaultHandler({ clientID, req, reqID, ws })
 
-      data = JSON.stringify(data)
-      console.log(`[${client_id}] sending request to Conflux: '${data}'`)
+      setInterval(() => {
+        if (typeof onResponse[req.id] !== 'undefined') {
+          console.log(`[${clientID}]`.grey, `no response within 5 seconds: ${JSON.stringify(req)}`.bold.red)
+        }
+      }, 5000);
+
+      const data = JSON.stringify(req)
+      console.log(`[${clientID}]`.grey, `sending request to Conflux:`, `'${data}'`.green)
       wsNetwork.send(data);
     });
 
     //close all subscriptions when client closes connection
     ws.on("close", function close() {
-      console.log(`[${client_id}] connection closed`)
+      console.log(`[${clientID}]`.grey, `connection closed`)
 
-      // Object.keys(subscriptionIDs).forEach(key => {
-      //   wsNetwork.send(
-      //     Buffer.from(
-      //       JSON.stringify({
-      //         jsonrpc: "2.0",
-      //         method: "cfx_unsubscribe",
-      //         params: [key],
-      //         id: 2
-      //       })
-      //     )
-      //   );
-      // });
+      if (typeof clientSubscriptions[clientID] === 'undefined') {
+        return;
+      }
+
+      const ids = clientSubscriptions[clientID];
+      delete clientSubscriptions[clientID];
+
+      for (const subID of ids) {
+        const reqID = getRandomInt(10000, 1000000);
+
+        const req = {
+          jsonrpc: "2.0",
+          method: "cfx_unsubscribe",
+          params: [subID],
+          id: reqID
+        };
+
+        // register handler
+        onResponse[req.id] = (resp) => {
+          delete onResponse[req.id];
+
+          if (!resp.result) {
+            console.log(`[proxy]`.grey, `unsubscribe failed for ${subID} on client ${clientID}`.red);
+            return;
+          }
+
+          delete onSubMsg[subID];
+          console.log(`[proxy]`.grey, `successfully unsubscribed client ${clientID} from #${subID}`);
+        }
+
+        const data = JSON.stringify(req)
+        console.log(`[${clientID}]`.grey, `sending request to Conflux:`, `'${data}'`.green)
+        wsNetwork.send(data);
+      }
     });
+  });
+
+  //return to requester
+  wsNetwork.on("message", function incoming(raw) {
+    console.log(`[proxy]`.grey, `incoming message:`, `'${raw}'`.grey);
+
+    // parse message
+    let msg;
+
+    try {
+      msg = JSON.parse(raw);
+    } catch (err) {
+      console.error(`[proxy]`.grey, `failed to parse JSON\n    raw: '${raw.trim()}'\n    error: ${err}`.red);
+      return;
+    }
+
+    if (typeof msg.id !== 'undefined') {
+      // treat as response
+      return onResponse[msg.id](msg);
+    }
+
+    else if (msg.method === "cfx_subscription" && typeof msg.params.subscription !== 'undefined') {
+      // treat as pubsub
+      return onSubMsg[msg.params.subscription](msg);
+    }
+
+    else {
+      // TODO
+    }
+
+    // if (data.method == "cfx_subscription") {
+    //   // subscriptionIDs[data.params.subscription] = true;
+    //   const dataObj = postprocess(
+    //     data.method,
+    //     subscriptionIDs[data.params.subscription].params,
+    //     data.params
+    //   );
+    //   data.params = dataObj;
+    // }
+
+    // //only post process if no error (and is not a subscription response)
+    // if (!data.error && !!originalRequest[data.id]) {
+    //   const inputs = originalRequest[data.id];
+    //   data = postprocess(inputs.method, inputs.params, data);
+    // } else if (!data.error && !!subscriptionIDs[data.id]) {
+    //   subscriptionIDs[data.result] = subscriptionIDs[data.id]; //setting subscription data to be looked up via subscription ID rather than request ID
+    //   delete subscriptionIDs[data.id];
+    // }
+
+    // delete originalRequest[data.id];
+
+    // // get original request id and connection object
+    // const req = requestIDMapping[data.id];
+    // console.log(`[proxy] dispatching #${data.id} to client ${req.clientID} as #${req.id}`);
+    // data.id = req.id;
+
+    // data = JSON.stringify(data);
+    // console.log(`[${req.clientID}] result from node: '${data}'`)
+    // req.ws.send(data);
   });
 } else {
   console.log("Invalid endpoint in .env file");

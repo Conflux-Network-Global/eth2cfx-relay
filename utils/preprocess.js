@@ -19,12 +19,13 @@ const eth2cfx = {
   // eth_getTransactionByHash: "cfx_getTransactionByHash", //custom handler created for getTransactionByHash (see index.js)
   eth_getTransactionReceipt: "cfx_getTransactionReceipt",
   eth_getLogs: "cfx_getLogs", //caution about using cfx_getLogs (default fromEpoch is latest_checkpoint (earliest epoch in memory))
-  eth_subscribe: "cfx_subscribe"
+  eth_subscribe: "cfx_subscribe",
+  eth_unsubscribe: "cfx_unsubscribe",
 };
 
 //get the corresponding cfx method based on the eth method
 const methodFilter = method => {
-  return method.includes("cfx_") ? method : eth2cfx[method];
+  return method.includes("cfx_") ? method : (eth2cfx[method] || method);
 };
 
 //fixing the difference in epoch/block parameter
@@ -99,6 +100,10 @@ const epochFilter = (method, params) => {
 
     if (logFilter.fromEpoch == '0x135ba63') {
       logFilter.fromEpoch = '0xF5254D';
+    }
+
+    if (logFilter.fromEpoch == '0x13a9607') {
+      logFilter.fromEpoch = '0xF8E7A0';
     }
     //////////////////
 
