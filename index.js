@@ -257,7 +257,7 @@ if (type == "ht") {
             setTimeout(reject, 5000);
           });
         } catch (err) {
-          console.log(`[${clientID}]`.grey, `no response within 5 seconds: ${JSON.stringify(subreq)}`.bold.red)
+          console.log(`[${clientID}]`.grey, `no response within 15 seconds: ${JSON.stringify(subreq)}`.bgRed.white.bold)
           return;
         }
 
@@ -328,7 +328,7 @@ if (type == "ht") {
               };
 
               setTimeout(() => {
-                console.log(`[${clientID}]`.grey, `cfx_getLogs[${operationID}]`, `no response within 15 seconds: ${JSON.stringify(subreq)}`.bold.red);
+                console.log(`[${clientID}]`.grey, `cfx_getLogs[${operationID}]`, `no response within 15 seconds: ${JSON.stringify(subreq)}`.bgRed.white.bold);
                 reject();
               }, 15000);
             }));
@@ -343,7 +343,7 @@ if (type == "ht") {
           try {
             responses = await Promise.all(promises);
           } catch (err) {
-            console.log(`[${clientID}]`.grey, `cfx_getLogs[${operationID}]`, `operation failed`.bold.red)
+            console.log(`[${clientID}]`.grey, `cfx_getLogs[${operationID}]`, `operation failed`.bgRed.white.bold)
           }
 
           for (const resp of responses) {
@@ -398,10 +398,10 @@ if (type == "ht") {
             resolve(resp);
           };
 
-          setTimeout(reject, 5000);
+          setTimeout(reject, 15000);
         });
       } catch (err) {
-        console.log(`[${clientID}]`.grey, `no response within 5 seconds: ${JSON.stringify(req)}`.bold.red)
+        console.log(`[${clientID}]`.grey, `no response within 15 seconds: ${JSON.stringify(req)}`.bgRed.white.bold)
         return;
       }
 
@@ -444,7 +444,7 @@ if (type == "ht") {
             setTimeout(reject, 5000);
           });
         } catch (err) {
-          console.log(`[${clientID}]`.grey, `no response within 5 seconds: ${JSON.stringify(req)}`.bold.red)
+          console.log(`[${clientID}]`.grey, `no response within 15 seconds: ${JSON.stringify(req)}`.bgRed.white.bold)
           return;
         }
 
