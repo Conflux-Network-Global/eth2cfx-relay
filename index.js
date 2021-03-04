@@ -181,6 +181,22 @@ if (type == "ht") {
     });
   }
 
+  const sendTimeout = (clientID, ws, id) => {
+    const resp = {
+      jsonrpc: "2.0",
+      error: {
+        code: -32601,
+        message: "Timeout"
+      },
+      id,
+    };
+
+    // send request
+    const data = JSON.stringify(resp)
+    log(clientID, 'sending timeout response to client:', `'${data}'`.red);
+    ws.send(data);
+  }
+
   const defaultHandler = (ctx) => {
     return (resp) => {
       if (!resp.error) {
@@ -271,6 +287,7 @@ if (type == "ht") {
         try {
           resp = await response(clientID, subreq, 15000);
         } catch (err) {
+          sendTimeout(clientID, ws, req.id);
           return;
         }
 
@@ -347,6 +364,8 @@ if (type == "ht") {
             responses = await Promise.all(promises);
           } catch (err) {
             log(clientID, `cfx_getLogs[${operationID}]`, `operation failed`.bgRed.white.bold)
+            sendTimeout(clientID, ws, req.id);
+            return;
           }
 
           for (const resp of responses) {
@@ -397,6 +416,7 @@ if (type == "ht") {
       try {
         resp = await response(clientID, req, 15000);
       } catch (err) {
+        sendTimeout(clientID, ws, reqID);
         return;
       }
 
