@@ -164,6 +164,23 @@ if (type == "ht") {
     log('proxy', `stats: ${Object.keys(requests).length} requests / ${Object.keys(onSubNotification).length} subscriptions / ${Object.keys(clientSubscriptions).length} subscription clients`.grey);
   }, 1000)
 
+  const response = (clientID, req, timeout) => {
+    return new Promise((resolve, reject) => {
+      requests[req.id] = (resp) => {
+        delete requests[req.id];
+        resolve(resp);
+      };
+
+      setTimeout(() => {
+        if (typeof requests[req.id] !== 'undefined') {
+          log(clientID, `no response within ${timeout}ms: ${JSON.stringify(req)}`.bgRed.white.bold);
+          delete requests[req.id];
+          reject();
+        }
+      }, timeout);
+    });
+  }
+
   const defaultHandler = (ctx) => {
     return (resp) => {
       if (!resp.error) {
@@ -252,16 +269,8 @@ if (type == "ht") {
         // wait for response
         let resp;
         try {
-          resp = await new Promise((resolve, reject) => {
-            requests[subreq.id] = (resp) => {
-              delete requests[subreq.id];
-              resolve(resp);
-            };
-
-            setTimeout(reject, 5000);
-          });
+          resp = await response(clientID, subreq, 15000);
         } catch (err) {
-          log(clientID, `no response within 15 seconds: ${JSON.stringify(subreq)}`.bgRed.white.bold)
           return;
         }
 
@@ -325,17 +334,7 @@ if (type == "ht") {
             log(clientID, `cfx_getLogs[${operationID}] sending request to Conflux: '${data}'`)
             wsNetwork.send(data);
 
-            promises.push(new Promise((resolve, reject) => {
-              requests[subreq.id] = (resp) => {
-                delete requests[subreq.id];
-                resolve(resp);
-              };
-
-              setTimeout(() => {
-                log(clientID, `cfx_getLogs[${operationID}]`, `no response within 15 seconds: ${JSON.stringify(subreq)}`.bgRed.white.bold);
-                reject();
-              }, 15000);
-            }));
+            promises.push(response(clientID, subreq, 15000));
 
             from = to + 1;
             to = Math.min(from + MAX_GAP - 1, toEpoch);
@@ -396,16 +395,8 @@ if (type == "ht") {
       // wait for response
       let resp;
       try {
-        resp = await new Promise((resolve, reject) => {
-          requests[req.id] = (resp) => {
-            delete requests[req.id];
-            resolve(resp);
-          };
-
-          setTimeout(reject, 15000);
-        });
+        resp = await response(clientID, req, 15000);
       } catch (err) {
-        log(clientID, `no response within 15 seconds: ${JSON.stringify(req)}`.bgRed.white.bold)
         return;
       }
 
@@ -440,15 +431,8 @@ if (type == "ht") {
 
         let resp;
         try {
-          resp = await new Promise((resolve, reject) => {
-            requests[req.id] = (resp) => {
-              delete requests[req.id];
-              resolve(resp);
-            };
-            setTimeout(reject, 5000);
-          });
+          resp = await response(clientID, req, 15000);
         } catch (err) {
-          log(clientID, `no response within 15 seconds: ${JSON.stringify(req)}`.bgRed.white.bold)
           return;
         }
 
