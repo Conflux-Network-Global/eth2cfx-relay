@@ -16,6 +16,10 @@ function getRandomInt(min, max) {
   return Math.floor(Math.random() * (max - min) + min);
 }
 
+function log(source, ...args) {
+  console.log(`${new Date().toISOString()} -- [${source}]`.grey, ...args);
+}
+
 let client;
 
 //check endpoint type ('ws' or 'ht')
@@ -157,7 +161,7 @@ if (type == "ht") {
 
   // print stats regularly
   setInterval(() => {
-    console.log(`[proxy]`.grey, `stats: ${Object.keys(requests).length} requests / ${Object.keys(onSubNotification).length} subscriptions / ${Object.keys(clientSubscriptions).length} subscription clients`.grey);
+    log('proxy', `stats: ${Object.keys(requests).length} requests / ${Object.keys(onSubNotification).length} subscriptions / ${Object.keys(clientSubscriptions).length} subscription clients`.grey);
   }, 1000)
 
   const defaultHandler = (ctx) => {
@@ -176,7 +180,7 @@ if (type == "ht") {
 
         onSubNotification[subID] = (msg) => {
           const data = JSON.stringify(msg);
-          console.log(`[${ctx.clientID}]`.grey, `subscription notification:`, `'${data}'`.yellow)
+          log(ctx.clientID, `subscription notification:`, `'${data}'`.yellow)
           ctx.ws.send(data);
         };
       }
@@ -186,15 +190,15 @@ if (type == "ht") {
         const subID = ctx.req.params[0];
         clientSubscriptions[ctx.clientID] = clientSubscriptions[ctx.clientID].filter(e => e !== subID);
         delete onSubNotification[subID];
-        console.log(`[proxy]`.grey, `successfully unsubscribed client ${ctx.clientID} from #${subID}`);
+        log('proxy', `successfully unsubscribed client ${ctx.clientID} from #${subID}`);
       }
 
-      console.log(`[proxy]`.grey, `dispatching #${resp.id} to client ${ctx.clientID} as #${ctx.reqID}`);
+      log('proxy', `dispatching #${resp.id} to client ${ctx.clientID} as #${ctx.reqID}`);
       resp.id = ctx.reqID;
 
       const isError = !!resp.error;
       const data = JSON.stringify(resp);
-      console.log(`[${ctx.clientID}]`.grey, `result from node:`, isError ? `'${data}'`.red + ' (req: ' + `${JSON.stringify(ctx.req)}`.grey + ')' : `'${data}'`.green)
+      log(ctx.clientID, `result from node:`, isError ? `'${data}'`.red + ' (req: ' + `${JSON.stringify(ctx.req)}`.grey + ')' : `'${data}'`.green)
       ctx.ws.send(data);
     }
   }
@@ -203,10 +207,10 @@ if (type == "ht") {
   wsRelay.on("connection", (ws) => {
     // generate client ID
     const clientID = getRandomInt(10000, 90000);
-    console.log(`[${clientID}]`.grey, `new connection`)
+    log(clientID, 'new connection');
 
     ws.on("message", async (raw) => {
-      console.log(`[${clientID}]`.grey, `new client request:`, `'${raw.trim()}'`.grey)
+      log(clientID, `new client request:`, `'${raw.trim()}'`.grey)
 
       // parse request
       let req;
@@ -214,7 +218,7 @@ if (type == "ht") {
       try {
         req = parseRequest(raw);
       } catch (err) {
-        console.error(`[${clientID}]`.grey, `failed to parse request\n    raw: '${raw.trim()}'\n    error: ${err}`.red);
+        log(clientID, `failed to parse request\n    raw: '${raw.trim()}'\n    error: ${err}`.red);
         return;
       }
 
@@ -242,7 +246,7 @@ if (type == "ht") {
 
         // send request
         const data = JSON.stringify(subreq)
-        console.log(`[${clientID}] sending request to Conflux: '${data}'`)
+        log(clientID, `sending request to Conflux: '${data}'`)
         wsNetwork.send(data);
 
         // wait for response
@@ -257,7 +261,7 @@ if (type == "ht") {
             setTimeout(reject, 5000);
           });
         } catch (err) {
-          console.log(`[${clientID}]`.grey, `no response within 15 seconds: ${JSON.stringify(subreq)}`.bgRed.white.bold)
+          log(clientID, `no response within 15 seconds: ${JSON.stringify(subreq)}`.bgRed.white.bold)
           return;
         }
 
@@ -267,12 +271,12 @@ if (type == "ht") {
         const DAOEpoch = 15203231;
 
         // if (originalEpoch > latestEpoch) {
-        //   console.log(`[${clientID}]`.grey, `WARNING: rewriting "fromEpoch" from ${originalEpoch} (${req.params[0].fromEpoch}) to ${DAOEpoch} (0x${(DAOEpoch).toString(16)})`.bold.red);
+        //   log(clientID, `WARNING: rewriting "fromEpoch" from ${originalEpoch} (${req.params[0].fromEpoch}) to ${DAOEpoch} (0x${(DAOEpoch).toString(16)})`.bold.red);
         //   req.params[0].fromEpoch = `0x${(DAOEpoch).toString(16)}`;
         // }
 
         if (originalEpoch > latestEpoch) {
-          console.log(`[${clientID}]`.grey, `WARNING: rewriting "fromEpoch" from ${originalEpoch} (${req.params[0].fromEpoch}) to ${latestEpoch - 9500} (0x${(latestEpoch - 9500).toString(16)})`.bold.red);
+          log(clientID, `WARNING: rewriting "fromEpoch" from ${originalEpoch} (${req.params[0].fromEpoch}) to ${latestEpoch - 9500} (0x${(latestEpoch - 9500).toString(16)})`.bold.red);
           req.params[0].fromEpoch = `0x${(latestEpoch - 9500).toString(16)}`;
         }
 
@@ -302,7 +306,7 @@ if (type == "ht") {
           let to = Math.min(from + MAX_GAP - 1, toEpoch);
 
           while (from < toEpoch) {
-            console.log(`[${clientID}]`.grey, `cfx_getLogs[${operationID}]`, `requesting slice ${from}..${to} (from ${fromEpoch}..${toEpoch})`.bold.yellow);
+            log(clientID, `cfx_getLogs[${operationID}]`, `requesting slice ${from}..${to} (from ${fromEpoch}..${toEpoch})`.bold.yellow);
 
             const subreq = {
               jsonrpc: "2.0",
@@ -318,7 +322,7 @@ if (type == "ht") {
 
             // send request
             const data = JSON.stringify(subreq)
-            console.log(`[${clientID}] cfx_getLogs[${operationID}] sending request to Conflux: '${data}'`)
+            log(clientID, `cfx_getLogs[${operationID}] sending request to Conflux: '${data}'`)
             wsNetwork.send(data);
 
             promises.push(new Promise((resolve, reject) => {
@@ -328,7 +332,7 @@ if (type == "ht") {
               };
 
               setTimeout(() => {
-                console.log(`[${clientID}]`.grey, `cfx_getLogs[${operationID}]`, `no response within 15 seconds: ${JSON.stringify(subreq)}`.bgRed.white.bold);
+                log(clientID, `cfx_getLogs[${operationID}]`, `no response within 15 seconds: ${JSON.stringify(subreq)}`.bgRed.white.bold);
                 reject();
               }, 15000);
             }));
@@ -343,16 +347,16 @@ if (type == "ht") {
           try {
             responses = await Promise.all(promises);
           } catch (err) {
-            console.log(`[${clientID}]`.grey, `cfx_getLogs[${operationID}]`, `operation failed`.bgRed.white.bold)
+            log(clientID, `cfx_getLogs[${operationID}]`, `operation failed`.bgRed.white.bold)
           }
 
           for (const resp of responses) {
-            console.log(`[${clientID}]`.grey, `cfx_getLogs[${operationID}] sub result:`, `${JSON.stringify(resp)}`.yellow.bold);
+            log(clientID, `cfx_getLogs[${operationID}] sub result:`, `${JSON.stringify(resp)}`.yellow.bold);
 
             if (resp.error) {
               const isError = !!resp.error;
               const data = JSON.stringify(resp);
-              console.log(`[${clientID}]`.grey, `cfx_getLogs[${operationID}] result from node:`, isError ? `'${data}'`.red + ' (req: ' + `${JSON.stringify(req)}`.grey + ')' : `'${data}'`.green)
+              log(clientID, `cfx_getLogs[${operationID}] result from node:`, isError ? `'${data}'`.red + ' (req: ' + `${JSON.stringify(req)}`.grey + ')' : `'${data}'`.green)
               ws.send(data); // TODO: id
               return;
             }
@@ -367,7 +371,7 @@ if (type == "ht") {
           };
 
           const data = JSON.stringify(resp);
-          console.log(`[${clientID}]`.grey, `cfx_getLogs[${operationID}] result from node:`, `'${data}'`.green)
+          log(clientID, `cfx_getLogs[${operationID}] result from node:`, `'${data}'`.green)
           ws.send(data);
           return;
         }
@@ -382,11 +386,11 @@ if (type == "ht") {
       // generate random request id so that we can handle multiple clients
       const reqID = req.id;
       req.id = getRandomInt(10000, 1000000);
-      console.log(`[${clientID}]`.grey, `assigning ID #${req.id} to request #${reqID}`)
+      log(clientID, `assigning ID #${req.id} to request #${reqID}`)
 
       // send request
       const data = JSON.stringify(req)
-      console.log(`[${clientID}]`.grey, `sending request to Conflux:`, `'${data}'`.green)
+      log(clientID, `sending request to Conflux:`, `'${data}'`.green)
       wsNetwork.send(data);
 
       // wait for response
@@ -401,7 +405,7 @@ if (type == "ht") {
           setTimeout(reject, 15000);
         });
       } catch (err) {
-        console.log(`[${clientID}]`.grey, `no response within 15 seconds: ${JSON.stringify(req)}`.bgRed.white.bold)
+        log(clientID, `no response within 15 seconds: ${JSON.stringify(req)}`.bgRed.white.bold)
         return;
       }
 
@@ -411,7 +415,7 @@ if (type == "ht") {
 
     //close all subscriptions when client closes connection
     ws.on("close", async () => {
-      console.log(`[${clientID}]`.grey, `connection closed`)
+      log(clientID, `connection closed`)
 
       if (typeof clientSubscriptions[clientID] === 'undefined') {
         return;
@@ -431,7 +435,7 @@ if (type == "ht") {
         };
 
         const data = JSON.stringify(req)
-        console.log(`[${clientID}]`.grey, `sending request to Conflux:`, `'${data}'`.green)
+        log(clientID, `sending request to Conflux:`, `'${data}'`.green)
         wsNetwork.send(data);
 
         let resp;
@@ -444,24 +448,24 @@ if (type == "ht") {
             setTimeout(reject, 5000);
           });
         } catch (err) {
-          console.log(`[${clientID}]`.grey, `no response within 15 seconds: ${JSON.stringify(req)}`.bgRed.white.bold)
+          log(clientID, `no response within 15 seconds: ${JSON.stringify(req)}`.bgRed.white.bold)
           return;
         }
 
         if (!resp.result) {
-          console.log(`[proxy]`.grey, `unsubscribe failed for ${subID} on client ${clientID}`.red);
+          log('proxy', `unsubscribe failed for ${subID} on client ${clientID}`.red);
           return;
         }
 
         delete onSubNotification[subID];
-        console.log(`[proxy]`.grey, `successfully unsubscribed client ${clientID} from #${subID}`);
+        log('proxy', `successfully unsubscribed client ${clientID} from #${subID}`);
       }
     });
   });
 
   //return to requester
   wsNetwork.on("message", (raw) => {
-    console.log(`[proxy]`.grey, `incoming message:`, `'${raw}'`.grey);
+    log('proxy', `incoming message:`, `'${raw}'`.grey);
 
     // parse message
     let msg;
@@ -469,7 +473,7 @@ if (type == "ht") {
     try {
       msg = JSON.parse(raw);
     } catch (err) {
-      console.error(`[proxy]`.grey, `failed to parse JSON\n    raw: '${raw.trim()}'\n    error: ${err}`.red);
+      log('proxy', `failed to parse JSON\n    raw: '${raw.trim()}'\n    error: ${err}`.red);
       return;
     }
 
@@ -484,7 +488,7 @@ if (type == "ht") {
     }
 
     else {
-      console.log(`[proxy]`.grey, `unexpected message: ${JSON.stringify(msg)}`.bgRed.white.bold)
+      log('proxy', `unexpected message: ${JSON.stringify(msg)}`.bgRed.white.bold)
       return;
     }
   });
