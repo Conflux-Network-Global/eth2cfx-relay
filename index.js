@@ -293,8 +293,9 @@ if (type == "ht") {
 
         const MAX_GAP = 10000;
 
+        let promises = [];
+
         if (toEpoch - fromEpoch >= MAX_GAP) {
-          let result = []
           const operationID = getRandomInt(10000, 1000000);
 
           let from = fromEpoch;
@@ -320,38 +321,44 @@ if (type == "ht") {
             console.log(`[${clientID}] cfx_getLogs[${operationID}] sending request to Conflux: '${data}'`)
             wsNetwork.send(data);
 
-            // wait for response
-            let resp;
-            try {
-              resp = await new Promise((resolve, reject) => {
-                requests[subreq.id] = (resp) => {
-                  delete requests[subreq.id];
-                  resolve(resp);
-                };
+            promises.push(new Promise((resolve, reject) => {
+              requests[subreq.id] = (resp) => {
+                delete requests[subreq.id];
+                resolve(resp);
+              };
 
-                setTimeout(reject, 5000);
-              });
-            } catch (err) {
-              console.log(`[${clientID}]`.grey, `no response within 5 seconds: ${JSON.stringify(subreq)}`.bold.red)
-              return;
-            }
+              setTimeout(() => {
+                console.log(`[${clientID}]`.grey, `cfx_getLogs[${operationID}]`, `no response within 15 seconds: ${JSON.stringify(subreq)}`.bold.red);
+                reject();
+              }, 15000);
+            }));
 
+            from = to + 1;
+            to = Math.min(from + MAX_GAP - 1, toEpoch);
+          }
+
+          let responses;
+          let result = [];
+
+          try {
+            responses = await Promise.all(promises);
+          } catch (err) {
+            console.log(`[${clientID}]`.grey, `cfx_getLogs[${operationID}]`, `operation failed`.bold.red)
+          }
+
+          for (const resp of responses) {
             console.log(`[${clientID}]`.grey, `cfx_getLogs[${operationID}] sub result:`, `${JSON.stringify(resp)}`.yellow.bold);
 
             if (resp.error) {
               const isError = !!resp.error;
               const data = JSON.stringify(resp);
               console.log(`[${clientID}]`.grey, `cfx_getLogs[${operationID}] result from node:`, isError ? `'${data}'`.red + ' (req: ' + `${JSON.stringify(req)}`.grey + ')' : `'${data}'`.green)
-              ws.send(data);
+              ws.send(data); // TODO: id
               return;
             }
 
             result = [...result, ...resp.result];
-
-            from = to + 1;
-            to = Math.min(from + MAX_GAP - 1, toEpoch);
           }
-
 
           const resp = {
             jsonrpc: "2.0",
