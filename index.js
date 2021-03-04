@@ -264,9 +264,103 @@ if (type == "ht") {
         const originalEpoch = parseInt(req.params[0].fromEpoch, 16);
         const latestEpoch = parseInt(resp.result, 16);
 
+        const DAOEpoch = 15203231;
+
+        // if (originalEpoch > latestEpoch) {
+        //   console.log(`[${clientID}]`.grey, `WARNING: rewriting "fromEpoch" from ${originalEpoch} (${req.params[0].fromEpoch}) to ${DAOEpoch} (0x${(DAOEpoch).toString(16)})`.bold.red);
+        //   req.params[0].fromEpoch = `0x${(DAOEpoch).toString(16)}`;
+        // }
+
         if (originalEpoch > latestEpoch) {
           console.log(`[${clientID}]`.grey, `WARNING: rewriting "fromEpoch" from ${originalEpoch} (${req.params[0].fromEpoch}) to ${latestEpoch - 9500} (0x${(latestEpoch - 9500).toString(16)})`.bold.red);
           req.params[0].fromEpoch = `0x${(latestEpoch - 9500).toString(16)}`;
+        }
+
+        req.params[0].toEpoch = resp.result;
+      }
+      /////////////////////
+
+
+
+
+
+
+
+      /////////////////////
+      if (req.method === 'cfx_getLogs') {
+        const fromEpoch = parseInt(req.params[0].fromEpoch, 16);
+        const toEpoch = parseInt(req.params[0].toEpoch, 16);
+
+        if (toEpoch - fromEpoch >= 10000) {
+          let result = []
+          const operationID = getRandomInt(10000, 1000000);
+
+          let from = fromEpoch;
+          let to = Math.min(from + 10000 - 1, toEpoch);
+
+          while (from < toEpoch) {
+            console.log(`[${clientID}]`.grey, `cfx_getLogs[${operationID}]`, `requesting slice ${from}..${to} (from ${fromEpoch}..${toEpoch})`.bold.yellow);
+
+            const subreq = {
+              jsonrpc: "2.0",
+              method: "cfx_getLogs",
+              params: [{
+                address: req.params[0].address,
+                topics: req.params[0].topics,
+                fromEpoch: `0x${from.toString(16)}`,
+                toEpoch: `0x${to.toString(16)}`,
+              }],
+              id: getRandomInt(10000, 1000000)
+            };
+
+            // send request
+            const data = JSON.stringify(subreq)
+            console.log(`[${clientID}] cfx_getLogs[${operationID}] sending request to Conflux: '${data}'`)
+            wsNetwork.send(data);
+
+            // wait for response
+            let resp;
+            try {
+              resp = await new Promise((resolve, reject) => {
+                requests[subreq.id] = (resp) => {
+                  delete requests[subreq.id];
+                  resolve(resp);
+                };
+
+                setTimeout(reject, 5000);
+              });
+            } catch (err) {
+              console.log(`[${clientID}]`.grey, `no response within 5 seconds: ${JSON.stringify(subreq)}`.bold.red)
+              return;
+            }
+
+            console.log(`[${clientID}]`.grey, `cfx_getLogs[${operationID}] sub result:`, `${JSON.stringify(resp)}`.yellow.bold);
+
+            if (resp.error) {
+              const isError = !!resp.error;
+              const data = JSON.stringify(resp);
+              console.log(`[${clientID}]`.grey, `cfx_getLogs[${operationID}] result from node:`, isError ? `'${data}'`.red + ' (req: ' + `${JSON.stringify(req)}`.grey + ')' : `'${data}'`.green)
+              ws.send(data);
+              return;
+            }
+
+            result = [...result, ...resp.result];
+
+            from = to + 1;
+            to = Math.min(from + 10000 - 1, toEpoch);
+          }
+
+
+          const resp = {
+            jsonrpc: "2.0",
+            result,
+            id: req.id,
+          };
+
+          const data = JSON.stringify(resp);
+          console.log(`[${clientID}]`.grey, `cfx_getLogs[${operationID}] result from node:`, `'${data}'`.green)
+          ws.send(data);
+          return;
         }
       }
       /////////////////////
