@@ -484,38 +484,9 @@ if (type == "ht") {
     }
 
     else {
-      // TODO
+      console.log(`[proxy]`.grey, `unexpected message: ${JSON.stringify(msg)}`.bgRed.white.bold)
+      return;
     }
-
-    // if (data.method == "cfx_subscription") {
-    //   // subscriptionIDs[data.params.subscription] = true;
-    //   const dataObj = postprocess(
-    //     data.method,
-    //     subscriptionIDs[data.params.subscription].params,
-    //     data.params
-    //   );
-    //   data.params = dataObj;
-    // }
-
-    // //only post process if no error (and is not a subscription response)
-    // if (!data.error && !!originalRequest[data.id]) {
-    //   const inputs = originalRequest[data.id];
-    //   data = postprocess(inputs.method, inputs.params, data);
-    // } else if (!data.error && !!subscriptionIDs[data.id]) {
-    //   subscriptionIDs[data.result] = subscriptionIDs[data.id]; //setting subscription data to be looked up via subscription ID rather than request ID
-    //   delete subscriptionIDs[data.id];
-    // }
-
-    // delete originalRequest[data.id];
-
-    // // get original request id and connection object
-    // const req = requestIDMapping[data.id];
-    // console.log(`[proxy] dispatching #${data.id} to client ${req.clientID} as #${req.id}`);
-    // data.id = req.id;
-
-    // data = JSON.stringify(data);
-    // console.log(`[${req.clientID}] result from node: '${data}'`)
-    // req.ws.send(data);
   });
 } else {
   console.log("Invalid endpoint in .env file");
