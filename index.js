@@ -291,12 +291,14 @@ if (type == "ht") {
         const fromEpoch = parseInt(req.params[0].fromEpoch, 16);
         const toEpoch = parseInt(req.params[0].toEpoch, 16);
 
-        if (toEpoch - fromEpoch >= 10000) {
+        const MAX_GAP = 10000;
+
+        if (toEpoch - fromEpoch >= MAX_GAP) {
           let result = []
           const operationID = getRandomInt(10000, 1000000);
 
           let from = fromEpoch;
-          let to = Math.min(from + 10000 - 1, toEpoch);
+          let to = Math.min(from + MAX_GAP - 1, toEpoch);
 
           while (from < toEpoch) {
             console.log(`[${clientID}]`.grey, `cfx_getLogs[${operationID}]`, `requesting slice ${from}..${to} (from ${fromEpoch}..${toEpoch})`.bold.yellow);
@@ -347,7 +349,7 @@ if (type == "ht") {
             result = [...result, ...resp.result];
 
             from = to + 1;
-            to = Math.min(from + 10000 - 1, toEpoch);
+            to = Math.min(from + MAX_GAP - 1, toEpoch);
           }
 
 
