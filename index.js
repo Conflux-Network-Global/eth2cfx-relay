@@ -255,6 +255,34 @@ if (type == "ht") {
         return;
       }
 
+
+
+
+
+      /////////////////////
+      if (req.method === 'net_version') {
+        const resp = {
+          jsonrpc: "2.0",
+          error: {
+            code: -32601,
+            message: "Method not found"
+          },
+          id: req.id,
+        };
+
+        // send request
+        const data = JSON.stringify(resp)
+        log(clientID, 'sending response to client:', `'${data}'`.red);
+        ws.send(data);
+        return;
+      }
+      /////////////////////
+
+
+
+
+
+
       // // not supporting newHeads pubSub
       // if (request.method === "eth_subscribe" && request.params[0] === "newHeads") {
       //   request.method = "";
