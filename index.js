@@ -461,12 +461,12 @@ if (type == "ht") {
       return;
     }
 
-    if (typeof msg.id !== 'undefined') {
+    if (typeof msg.id !== 'undefined' && typeof requests[msg.id] !== 'undefined') {
       // treat as response
       return requests[msg.id](msg);
     }
 
-    else if (msg.method === "cfx_subscription" && typeof msg.params.subscription !== 'undefined') {
+    else if (msg.method === "cfx_subscription" && typeof msg.params.subscription !== 'undefined' && typeof onSubNotification[msg.params.subscription] !== 'undefined') {
       // treat as pubsub
       return onSubNotification[msg.params.subscription](msg);
     }
