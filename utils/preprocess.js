@@ -30,6 +30,10 @@ const methodFilter = method => {
 
 //fixing the difference in epoch/block parameter
 const epochFilter = (method, params) => {
+  if (method === "eth_getBlockByNumber" && params[0] === null) {
+    params[0] = "latest_state";
+  }
+
   let newParams;
   if (params && params.length > 0 && method !== "eth_getLogs" && method !== "eth_subscribe") {
     newParams = params.map(param =>
