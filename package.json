@@ -10,7 +10,7 @@
     "dotenv": "^8.2.0",
     "jayson": "^3.3.0",
     "keccak256": "^1.0.0",
-    "ws": "^7.4.1"
+    "ws": "^7.4.6"
   },
   "scripts": {
     "start": "node index.js",
